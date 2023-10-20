@@ -4,65 +4,104 @@ import * as Icon from "react-bootstrap-icons";
 
 function App() {
   const [breakState, setBreakState] = useState(5);
-  const [sessionState, setSessionState] = useState(25);
-  const [clockState, setClockState] = useState("25:00");
-  const timerRef = useRef(25 * 60);
+  const [sessionState, setSessionState] = useState(23);
+  const [clockState, setClockState] = useState(
+    `${sessionState.toString().padStart(2, "0")}:00`
+  );
+  const timerRef = useRef(sessionState * 60);
   const intervalRef = useRef(0);
 
   function handleBreakConfig(mod) {
+    if (intervalRef.current) return;
+
+    let newTime = 0;
+
     if (mod === "-") {
       if (breakState === 1) return;
-      setBreakState(breakState - 1);
-      return;
+
+      newTime = breakState - 1;
+      setBreakState(newTime);
+    } else {
+      if (breakState === 60) return;
+
+      newTime = breakState + 1;
+      setBreakState(newTime);
     }
-    if (breakState === 60) return;
-    setBreakState(breakState + 1);
+
+    if (document.getElementById("timer-label").textContent === "Break") {
+      timerRef.current = newTime * 60;
+      refreshClock();
+    }
     return;
   }
 
   function handleSessionConfig(mod) {
+    if (intervalRef.current) return;
+
+    let newTime = 0;
+
     if (mod === "-") {
       if (sessionState === 1) return;
-      const newMinutes = sessionState - 1;
-      setSessionState(newMinutes);
-      timerRef.current = newMinutes * 60;
-      return;
+
+      newTime = sessionState - 1;
+      setSessionState(sessionState - 1);
+    } else {
+      if (sessionState === 60) return;
+
+      newTime = sessionState + 1;
+      setSessionState(newTime);
     }
-    if (sessionState === 60) return;
-    const newMinutes = sessionState + 1;
-    setSessionState(newMinutes);
-    timerRef.current = newMinutes * 60;
+
+    if (document.getElementById("timer-label").textContent === "Session") {
+      timerRef.current = newTime * 60;
+      refreshClock();
+    }
     return;
   }
 
-  function handleBreakStart() {
-    if (!intervalRef.current) {
-      document.getElementById("timer-label").textContent = "Break";
-      timerRef.current = breakState * 60;
-      const timer = timerRef.current;
-      setClockState(
-        `${Math.floor(timer / 60)}:${(timer % 60).toString().padStart(2, "0")}`
-      );
-    }
-    const intervalId = setInterval(() => {
-      const timer = --timerRef.current;
-      setClockState(
-        `${Math.floor(timer / 60)}:${(timer % 60).toString().padStart(2, "0")}`
-      );
+  function setBreakDuration() {
+    timerRef.current = breakState * 60;
+    refreshClock();
+  }
 
-      if (timer < 0) {
+  function setSessionDuration() {
+    timerRef.current = sessionState * 60;
+    refreshClock();
+  }
+
+  function refreshClock() {
+    setClockState(
+      `${Math.floor(timerRef.current / 60)
+        .toString()
+        .padStart(2, "0")}:${(timerRef.current % 60)
+        .toString()
+        .padStart(2, "0")}`
+    );
+  }
+
+  function timerSwitch() {
+    const label = document.getElementById("timer-label");
+    if (label.textContent === "Session") {
+      label.textContent = "Break";
+      setBreakDuration();
+    } else {
+      label.textContent = "Session";
+      setSessionDuration();
+    }
+    refreshClock();
+    startTimer();
+  }
+
+  function startTimer() {
+    const intervalId = setInterval(() => {
+      --timerRef.current;
+      refreshClock();
+
+      if (timerRef.current < 0) {
         document.getElementById("beep").play();
         clearInterval(intervalId);
         intervalRef.current = 0;
-        timerRef.current = sessionState * 60;
-        document.getElementById("timer-label").textContent = "Session";
-        const timer = timerRef.current;
-        setClockState(
-          `${Math.floor(timer / 60)}:${(timer % 60)
-            .toString()
-            .padStart(2, "0")}`
-        );
-        handleStartStopClick();
+        timerSwitch();
       }
     }, 1000);
     intervalRef.current = intervalId;
@@ -75,23 +114,14 @@ function App() {
       intervalRef.current = 0;
       return;
     }
-    const intervalId = setInterval(() => {
-      const timer = --timerRef.current;
-      setClockState(
-        `${Math.floor(timer / 60)}:${(timer % 60).toString().padStart(2, "0")}`
-      );
-
-      if (timer < 1495) {
-        document.getElementById("beep").play();
-        clearInterval(intervalId);
-        intervalRef.current = 0;
-        handleBreakStart();
-      }
-    }, 1000);
-    intervalRef.current = intervalId;
+    refreshClock();
+    startTimer();
   }
 
   function handleResetClick() {
+    document.getElementById("beep").pause();
+    document.getElementById("beep").currentTime = 0;
+
     const intervalId = intervalRef.current;
     clearInterval(intervalId);
     document.getElementById("timer-label").textContent = "Session";
@@ -99,13 +129,13 @@ function App() {
     timerRef.current = 25 * 60;
     setBreakState(5);
     setSessionState(25);
-    setClockState("25:00");
+    refreshClock();
   }
 
   return (
     <div className="App">
       <header>
-        <h1>25 + 5 Clock</h1>
+        <h1 className="mt-5 mb-3 fw-bold">25 + 5 Clock</h1>
       </header>
       <main>
         <section className="row" id="config">
